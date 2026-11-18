@@ -22,8 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 
-private val Ink=Color(0xFF080B12); private val Panel=Color(0xFF111827)
-private val Blue=Color(0xFF172238); private val Gold=Color(0xFFD7B56D)
+private val Ink=Color(0xFF070A10); private val Panel=Color(0xFF111724)
+private val Blue=Color(0xFF18263D); private val Gold=Color(0xFFD9BD79)
 private val Violet=Color(0xFF8274E8); private val Silver=Color(0xFFDCE3EF)
 private val Muted=Color(0xFF929DB0); private val Green=Color(0xFF55C99A)
 private const val PREFS_NAME="nova_pay_demo"
@@ -113,6 +113,13 @@ class MainActivity:ComponentActivity(){
       2->ActivityPage(history)
       else->Profile(user=user,open={dialog=true},onProfileUpdated={updated->authStorage.updateProfile(updated.name,updated.email,updated.phone)?.let{currentUser=it}},onLogout={
        authStorage.logout()
+       if(user.isGuest){
+        prefs.edit().clear().apply()
+        balance=125000L
+        history=""
+        frozen=false
+        spendingLimit=100000
+       }
        currentUser=null
        page=0
       })
@@ -132,7 +139,7 @@ class MainActivity:ComponentActivity(){
  }
  Spacer(Modifier.width(12.dp)); Column(Modifier.weight(1f)){
  Text("NOVA PAY",fontSize=19.sp,fontWeight=FontWeight.Black,letterSpacing=2.sp,color=Silver)
- Text("L'argent, sans frontières.",fontSize=11.sp,color=Muted)
+ Text("PRIVATE DIGITAL EXPERIENCE",fontSize=9.sp,letterSpacing=1.2.sp,color=Muted)
  }
  }
 }
@@ -162,9 +169,9 @@ class MainActivity:ComponentActivity(){
 }
 
 @Composable fun CardVisual(frozen:Boolean){
- Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Color(0xFF28334A),Color(0xFF101827),Color(0xFF332A50)))).border(1.dp,Gold.copy(.55f),RoundedCornerShape(24.dp)).padding(20.dp)){
+ Box(Modifier.fillMaxWidth().height(202.dp).clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Color(0xFF25334A),Color(0xFF0D1421),Color(0xFF1B2638)))).border(1.dp,Gold.copy(.72f),RoundedCornerShape(24.dp)).padding(21.dp)){
  Column(Modifier.fillMaxSize(),verticalArrangement=Arrangement.SpaceBetween){
- Row(verticalAlignment=Alignment.CenterVertically){Text("NOVA",color=Gold,fontSize=18.sp,fontWeight=FontWeight.Black,letterSpacing=3.sp);Spacer(Modifier.weight(1f));Text("VIRTUAL • DEMO",color=Silver,fontSize=9.sp,letterSpacing=1.sp)}
+ Row(verticalAlignment=Alignment.CenterVertically){Text("NOVA",color=Gold,fontSize=18.sp,fontWeight=FontWeight.Black,letterSpacing=3.sp);Spacer(Modifier.weight(1f));Text("VIRTUAL • TEST",color=Gold,fontSize=9.sp,letterSpacing=1.1.sp)}
  Column(verticalArrangement=Arrangement.spacedBy(7.dp)){Text("••••  ••••  ••••  2048",color=Silver,fontSize=18.sp,letterSpacing=2.sp);Row{Text("CARTE DE TEST",color=Muted,fontSize=9.sp);Spacer(Modifier.weight(1f));Text("NON VALIDE",color=Gold,fontWeight=FontWeight.Bold,fontSize=9.sp)}}
  Row(verticalAlignment=Alignment.CenterVertically){Text("NOVA MEMBER",color=Silver,fontSize=10.sp);Spacer(Modifier.weight(1f));Text("N",color=Gold,fontSize=27.sp,fontWeight=FontWeight.Black)}
  }
@@ -259,7 +266,7 @@ class MainActivity:ComponentActivity(){
    }
   }
   Button(onClick={editing=true},enabled=!user.isGuest,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),colors=ButtonDefaults.buttonColors(containerColor=Gold,contentColor=Ink,disabledContainerColor=Panel,disabledContentColor=Muted)){
-   Icon(Icons.Rounded.Edit,null);Spacer(Modifier.width(8.dp));Text("Modifier mes informations")
+   Icon(Icons.Rounded.Edit,null);Spacer(Modifier.width(8.dp));Text(if(user.isGuest) "Profil invité temporaire" else "Modifier mes informations")
   }
   listOf("Sécurité et confidentialité","Notifications","Centre d'aide","À propos de NOVA PAY").forEach{label->
    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Panel).clickable{open()}.padding(16.dp),verticalAlignment=Alignment.CenterVertically){
@@ -279,7 +286,7 @@ class MainActivity:ComponentActivity(){
    if(error.isNotBlank()) Text(error,color=Color(0xFFFF8A80),fontSize=12.sp)
   }
  },confirmButton={TextButton(onClick={
-  if(name.isBlank()||!email.contains("@")||phone.isBlank()) error="Vérifie les trois champs."
+  if(name.isBlank()||!email.contains("@")) error="Vérifie le nom et l'adresse e-mail."
   else {onProfileUpdated(user.copy(name=name.trim(),email=email.trim(),phone=phone.trim()));editing=false}
  }){Text("Enregistrer",color=Gold)}},dismissButton={TextButton(onClick={editing=false}){Text("Annuler",color=Muted)}})
  if(verifying) AlertDialog(onDismissRequest={verifying=false},containerColor=Panel,title={Text("Vérification du téléphone",color=Gold)},text={Text("Le service d'envoi de SMS n'est pas encore connecté. Ton numéro reste donc non vérifié. Nous ne pouvons pas confirmer un numéro sans code envoyé par un prestataire SMS.",color=Silver)},confirmButton={TextButton(onClick={verifying=false}){Text("Compris",color=Gold)}})
@@ -295,7 +302,7 @@ class MainActivity:ComponentActivity(){
 }
 @Composable fun Notice(){
  Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(Panel).padding(15.dp)){
- Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Rounded.Shield,null,tint=Gold);Spacer(Modifier.width(8.dp));Text("Version 1.1 • Démonstration",color=Gold,fontWeight=FontWeight.Bold,fontSize=12.sp)}
+ Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Rounded.Shield,null,tint=Gold);Spacer(Modifier.width(8.dp));Text("NOVA PAY 1.2 • DÉMONSTRATION",color=Gold,fontWeight=FontWeight.Bold,fontSize=12.sp)}
  Spacer(Modifier.height(6.dp));Text("Cette carte est fictive : elle ne possède aucun numéro bancaire valide, aucun CVV et aucun réseau de paiement. Le solde, le plafond et les opérations sont simulés et stockés uniquement sur cet appareil. Aucun paiement réel n'est possible.",color=Muted,fontSize=11.sp,lineHeight=16.sp)
  }
 }
