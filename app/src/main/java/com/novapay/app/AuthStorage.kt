@@ -18,7 +18,10 @@ data class AuthUser(
     val name: String,
     val email: String,
     val phone: String,
-    val phoneVerified: Boolean
+    val phoneVerified: Boolean,
+    val isGuest: Boolean = false,
+    val walletId: String? = null,
+    val walletExpiresAt: Long? = null
 )
 
 enum class AuthStorageResult {
@@ -152,7 +155,6 @@ class AuthStorage(context: Context) {
         if (
             name.isBlank() ||
             !email.contains("@") ||
-            phone.isBlank() ||
             password.length < 10
         ) {
             return AuthStorageResult.INVALID_DATA
@@ -186,6 +188,7 @@ class AuthStorage(context: Context) {
                 .putString("phone_verified", encrypt("false"))
                 .putString("account_exists", encrypt("true"))
                 .putString("session", encrypt("true"))
+                .putString("session_type", encrypt("account"))
 
             if (editor.commit()) {
                 AuthStorageResult.SUCCESS
@@ -193,6 +196,35 @@ class AuthStorage(context: Context) {
                 AuthStorageResult.ERROR
             }
 
+        } catch (_: Exception) {
+            AuthStorageResult.ERROR
+        }
+    }
+
+    /**
+     * Creates a local-only guest wallet for product discovery.
+     * It contains no money, payment credentials, or transferable value.
+     */
+    fun createGuestWallet(durationMillis: Long): AuthStorageResult {
+        val allowedDurations = setOf(
+            60L * 60L * 1000L,
+            24L * 60L * 60L * 1000L,
+            7L * 24L * 60L * 60L * 1000L,
+            30L * 24L * 60L * 60L * 1000L
+        )
+        if (durationMillis !in allowedDurations) return AuthStorageResult.INVALID_DATA
+
+        return try {
+            val walletId = "NV-" + java.util.UUID.randomUUID()
+                .toString().replace("-", "").take(10).uppercase()
+            val expiry = System.currentTimeMillis() + durationMillis
+            val saved = prefs.edit()
+                .putString("session", encrypt("true"))
+                .putString("session_type", encrypt("guest"))
+                .putString("guest_wallet_id", encrypt(walletId))
+                .putLong("guest_wallet_expires_at", expiry)
+                .commit()
+            if (saved) AuthStorageResult.SUCCESS else AuthStorageResult.ERROR
         } catch (_: Exception) {
             AuthStorageResult.ERROR
         }
@@ -226,6 +258,7 @@ class AuthStorage(context: Context) {
 
             prefs.edit()
                 .putString("session", encrypt("true"))
+                .putString("session_type", encrypt("account"))
                 .commit()
 
         } catch (_: Exception) {
@@ -234,39 +267,70 @@ class AuthStorage(context: Context) {
     }
 
     fun isLoggedIn(): Boolean {
-        return prefs.getString("session", null)
+        val active = prefs.getString("session", null)
             ?.let { decrypt(it) == "true" }
             ?: false
+        if (!active) return false
+
+        val sessionType = prefs.getString("session_type", null)
+            ?.let { decrypt(it) } ?: "account"
+
+        if (sessionType == "guest") {
+            val expiry = prefs.getLong("guest_wallet_expires_at", 0L)
+            if (expiry <= System.currentTimeMillis()) {
+                prefs.edit()
+                    .putString("session", encrypt("false"))
+                    .remove("guest_wallet_id")
+                    .remove("guest_wallet_expires_at")
+                    .commit()
+                return false
+            }
+        }
+        return true
     }
 
     fun getCurrentUser(): AuthUser? {
         if (!isLoggedIn()) return null
 
         return try {
-            AuthUser(
-                name = decrypt(
-                    prefs.getString("name", null) ?: return null
-                ) ?: return null,
+            val sessionType = prefs.getString("session_type", null)
+                ?.let { decrypt(it) } ?: "account"
 
-                email = decrypt(
-                    prefs.getString("email", null) ?: return null
-                ) ?: return null,
-
-                phone = decrypt(
-                    prefs.getString("phone", null) ?: return null
-                ) ?: return null,
-
-                phoneVerified = decrypt(
-                    prefs.getString("phone_verified", null) ?: return null
-                ) == "true"
-            )
+            if (sessionType == "guest") {
+                AuthUser(
+                    name = "NOVA Guest",
+                    email = "Portefeuille temporaire de démonstration",
+                    phone = "Non demandé en mode invité",
+                    phoneVerified = false,
+                    isGuest = true,
+                    walletId = decrypt(
+                        prefs.getString("guest_wallet_id", null) ?: return null
+                    ),
+                    walletExpiresAt = prefs.getLong("guest_wallet_expires_at", 0L)
+                )
+            } else {
+                AuthUser(
+                    name = decrypt(
+                        prefs.getString("name", null) ?: return null
+                    ) ?: return null,
+                    email = decrypt(
+                        prefs.getString("email", null) ?: return null
+                    ) ?: return null,
+                    phone = decrypt(
+                        prefs.getString("phone", null) ?: return null
+                    ) ?: "",
+                    phoneVerified = decrypt(
+                        prefs.getString("phone_verified", null) ?: return null
+                    ) == "true"
+                )
+            }
         } catch (_: Exception) {
             null
         }
     }
 
     fun updateProfile(name: String, email: String, phone: String): AuthUser? {
-        if (name.isBlank() || !email.contains("@") || phone.isBlank()) return null
+        if (name.isBlank() || !email.contains("@")) return null
         return try {
             val editor = prefs.edit()
                 .putString("name", encrypt(name.trim()))
