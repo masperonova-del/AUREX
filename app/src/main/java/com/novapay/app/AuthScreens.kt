@@ -111,8 +111,7 @@ fun AuthScreen(
                     when (mode) {
                         0 -> {
                             Text(
-                                "Le contrôle,
-en toute simplicité.",
+                                "Le contrôle, en toute simplicité.",
                                 color = AuthText,
                                 fontSize = 27.sp,
                                 lineHeight = 33.sp,
