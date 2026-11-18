@@ -41,3 +41,20 @@ NOVA PAY est un prototype éducatif. Il ne détient pas de fonds, n'émet pas de
 ## Compilation
 
 Projet Android Kotlin avec JDK 17 et Android SDK 35. Le workflow GitHub Actions compile l'APK de débogage.
+
+
+## Accès invité temporaire — branche 1.2
+
+La branche de travail `feature/guest-wallet-premium-v1-2` ajoute un parcours de découverte sans téléphone ni adresse e-mail :
+
+- durée au choix : 1 heure, 24 heures, 7 jours ou 30 jours ;
+- identifiant invité généré localement ;
+- date d'expiration visible dans l'application ;
+- fermeture automatique de la session et suppression des données de démonstration à échéance ;
+- aucun compte bancaire, argent réel, carte de paiement ou transfert.
+
+Le parcours invité est conçu pour tester l'interface, pas pour ouvrir un compte financier sans vérification. Les comptes de démonstration ne permettent aucun paiement réel.
+
+## Positionnement de lancement
+
+NOVA PAY reste pour le moment un prototype éducatif. Le lancement public ne doit pas annoncer de paiements, de carte émise, de dépôt, de retrait ou de solde réel tant qu'un partenaire agréé, les autorisations applicables, les contrôles de sécurité et les tests de conformité ne sont pas en place.
