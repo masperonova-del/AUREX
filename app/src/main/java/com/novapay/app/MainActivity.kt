@@ -57,8 +57,38 @@ class MainActivity:ComponentActivity(){
  var dialog by remember{mutableStateOf(false)}
 
  MaterialTheme(colorScheme=darkColorScheme(primary=Gold,secondary=Violet,background=Ink,surface=Panel)){
+  LaunchedEffect(currentUser?.walletExpiresAt) {
+   val expiry = currentUser?.walletExpiresAt ?: return@LaunchedEffect
+   val remaining = (expiry - System.currentTimeMillis()).coerceAtLeast(0L)
+   if (remaining > 0L) kotlinx.coroutines.delay(remaining)
+   val activeUser = currentUser
+   if (activeUser?.isGuest == true &&
+       activeUser.walletExpiresAt == expiry &&
+       System.currentTimeMillis() >= expiry
+   ) {
+    authStorage.logout()
+    prefs.edit().clear().apply()
+    balance = 125000L
+    history = ""
+    frozen = false
+    spendingLimit = 100000
+    currentUser = null
+    page = 0
+   }
+  }
+
   if(currentUser==null){
-   AuthScreen(authStorage=authStorage,onAuthenticated={user->currentUser=user;page=0})
+   AuthScreen(authStorage=authStorage,onAuthenticated={user->
+    if(user.isGuest){
+     prefs.edit().clear().apply()
+     balance=125000L
+     history=""
+     frozen=false
+     spendingLimit=100000
+    }
+    currentUser=user
+    page=0
+   })
   }else{
    val user=currentUser!!
    val toggleFrozen={
@@ -78,7 +108,7 @@ class MainActivity:ComponentActivity(){
    }){pad->
     Column(Modifier.fillMaxSize().padding(pad).padding(horizontal=20.dp)){
      when(page){
-      0->Home(hidden,{hidden=!hidden},frozen,toggleFrozen,{page=1},{page=2},balance,{transactionDialog=true})
+      0->Home(hidden,{hidden=!hidden},frozen,toggleFrozen,{page=1},{page=2},balance,{transactionDialog=true},user.walletExpiresAt)
       1->Cards(frozen,toggleFrozen,spendingLimit,updateLimit)
       2->ActivityPage(history)
       else->Profile(user=user,open={dialog=true},onProfileUpdated={updated->authStorage.updateProfile(updated.name,updated.email,updated.phone)?.let{currentUser=it}},onLogout={
@@ -107,9 +137,10 @@ class MainActivity:ComponentActivity(){
  }
 }
 
-@Composable fun Home(hidden:Boolean,toggle:()->Unit,frozen:Boolean,freeze:()->Unit,toCards:()->Unit,toActivity:()->Unit,balance:Long,newTransaction:()->Unit){
+@Composable fun Home(hidden:Boolean,toggle:()->Unit,frozen:Boolean,freeze:()->Unit,toCards:()->Unit,toActivity:()->Unit,balance:Long,newTransaction:()->Unit,guestExpiry:Long?=null){
  LazyColumn(contentPadding=PaddingValues(bottom=22.dp),verticalArrangement=Arrangement.spacedBy(18.dp)){
  item{Brand()}
+ if(guestExpiry!=null) item{GuestWalletExpiryBanner(guestExpiry)}
  item{Column{
  Text("SOLDE DISPONIBLE",fontSize=10.sp,letterSpacing=2.sp,color=Muted)
  Row(verticalAlignment=Alignment.Bottom){Text(if(hidden)"••••••" else "%,d".format(java.util.Locale.FRANCE,balance),fontSize=35.sp,fontWeight=FontWeight.Bold,color=Silver);Spacer(Modifier.width(8.dp));Text("FCFA",fontSize=13.sp,color=Gold,modifier=Modifier.padding(bottom=6.dp));Spacer(Modifier.weight(1f));IconButton(onClick=toggle){Icon(if(hidden)Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,null,tint=Gold)}}
@@ -206,21 +237,28 @@ class MainActivity:ComponentActivity(){
     Spacer(Modifier.width(12.dp))
     Column(Modifier.weight(1f)){
      Text(user.name,color=Silver,fontWeight=FontWeight.Bold,fontSize=17.sp)
-     Text(user.email,color=Muted,fontSize=11.sp)
+     Text(if(user.isGuest) "Portefeuille temporaire • sans coordonnées personnelles" else user.email,color=Muted,fontSize=11.sp)
     }
    }
    Divider(color=Blue)
-   InfoLine("Téléphone",user.phone)
-   Row(verticalAlignment=Alignment.CenterVertically){
-    Column(Modifier.weight(1f)){
-     Text("Vérification du téléphone",color=Muted,fontSize=11.sp)
-     Text(if(user.phoneVerified)"Vérifié" else "Non vérifié",color=if(user.phoneVerified)Green else Gold,fontSize=12.sp,fontWeight=FontWeight.SemiBold)
+   if(user.isGuest){
+    InfoLine("Téléphone","Non demandé")
+    InfoLine("Identifiant",user.walletId ?: "—")
+    InfoLine("Expiration",user.walletExpiresAt?.let{java.text.SimpleDateFormat("dd MMM yyyy • HH:mm",java.util.Locale.FRANCE).format(java.util.Date(it))} ?: "—")
+    InfoLine("Type de compte","Portefeuille invité • Démonstration")
+   }else{
+    InfoLine("Téléphone",if(user.phone.isBlank()) "Non renseigné" else user.phone)
+    Row(verticalAlignment=Alignment.CenterVertically){
+     Column(Modifier.weight(1f)){
+      Text("Vérification du téléphone",color=Muted,fontSize=11.sp)
+      Text(if(user.phoneVerified)"Vérifié" else "Non vérifié",color=if(user.phoneVerified)Green else Gold,fontSize=12.sp,fontWeight=FontWeight.SemiBold)
+     }
+     TextButton(onClick={verifying=true},enabled=!user.phoneVerified){Text(if(user.phoneVerified)"Vérifié" else "Vérifier",color=Gold)}
     }
-    TextButton(onClick={verifying=true},enabled=!user.phoneVerified){Text(if(user.phoneVerified)"Vérifié" else "Vérifier",color=Gold)}
+    InfoLine("Type de compte","Compte local de démonstration")
    }
-   InfoLine("Type de compte","Compte local de démonstration")
   }
-  Button(onClick={editing=true},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),colors=ButtonDefaults.buttonColors(containerColor=Gold,contentColor=Ink)){
+  Button(onClick={editing=true},enabled=!user.isGuest,modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp),colors=ButtonDefaults.buttonColors(containerColor=Gold,contentColor=Ink,disabledContainerColor=Panel,disabledContentColor=Muted)){
    Icon(Icons.Rounded.Edit,null);Spacer(Modifier.width(8.dp));Text("Modifier mes informations")
   }
   listOf("Sécurité et confidentialité","Notifications","Centre d'aide","À propos de NOVA PAY").forEach{label->
